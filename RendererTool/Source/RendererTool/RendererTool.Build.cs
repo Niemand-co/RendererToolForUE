@@ -35,6 +35,7 @@ public class RendererTool : ModuleRules
 			{
 				"CoreUObject",
 				"Engine",
+				"InputCore",
 				"Slate",
 				"SlateCore",
                 "ToolMenus",

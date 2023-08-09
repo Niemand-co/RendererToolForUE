@@ -21,19 +21,8 @@ void FRendererToolCommands::RegisterCommands()
 
 void FRendererToolActionCallbacks::CreateNewDisplayer()
 {
-	TSharedRef<FRendererDisplayer> Displayer = SNew( FRendererDisplayer )
-		.AutoCenter(EAutoCenter::PreferredWorkArea)
-		.Title(LOCTEXT("RendererDisplayerHeading", "Renderer Displayer"))
-		.SupportsMinimize(true)
-		.SupportsMaximize(true)
-		.MinHeight(100)
-		.MinWidth(100)
-		.ClientSize(FVector2D(1920.0, 1080.0));
-
-	TSharedRef<SWidget> DisplayerContent = FRendererDisplayerModule::GetDispalyerContent();
-	Displayer->SetContent(DisplayerContent);
-
-	FSlateApplication::Get().AddWindow(Displayer, true);
+	TSharedPtr<FRendererDisplayer> Displayer = FRendererDisplayerSystem::CreateRendererDisplayer();
+	FSlateApplication::Get().AddWindow(Displayer.ToSharedRef(), true);
 }
 
 #undef LOCTEXT_NAMESPACE

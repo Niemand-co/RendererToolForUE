@@ -19,13 +19,40 @@ public:
 
 	FRendererDisplayer();
 
-	~FRendererDisplayer();
+	virtual ~FRendererDisplayer();
 
-	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+	virtual void Tick(float InDeltaTime);
+
+	friend class FRendererDisplayerSystem;
+
+};
+
+class FRendererDisplayerSystem : public FTickableEditorObject
+{
+public:
+
+	FRendererDisplayerSystem() = default;
+
+	~FRendererDisplayerSystem() = default;
+
+	virtual void Tick(float InDeltaTime) override;
+
+	virtual ETickableTickType GetTickableTickType() const override;
+
+	virtual TStatId GetStatId() const override;
+
+	static FRendererDisplayerSystem& Get()
+	{
+		static FRendererDisplayerSystem Singleton;
+		return Singleton;
+	}
+
+	static TSharedPtr<FRendererDisplayer> CreateRendererDisplayer();
+
+	static void RemoveRendererDisplayer(TSharedPtr<FRendererDisplayer> InDisplayer);
 
 private:
 
-	UWorld *World;
-
+	TArray<TSharedPtr<FRendererDisplayer>> Displayers;
 
 };

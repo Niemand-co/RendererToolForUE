@@ -79,20 +79,58 @@ TSharedRef<SWidget> FRendererDisplayerModule::GetDispalyerContent()
 FRendererDisplayer::FRendererDisplayer()
 {
 
-	World = UWorld::CreateWorld( EWorldType::Editor, true, TEXT("Renderer Tool World"));
-
-	
 }
 
 FRendererDisplayer::~FRendererDisplayer()
 {
+	FRendererDisplayerSystem::RemoveRendererDisplayer(MakeShareable(this));
 }
 
-void FRendererDisplayer::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
+void FRendererDisplayer::Tick(float InDeltaTime)
 {
-	SWindow::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
+	UE_LOG(LogTemp, Warning, TEXT("Test"));
+}
 
-	World->Tick(ELevelTick::LEVELTICK_All, InDeltaTime);
+void FRendererDisplayerSystem::Tick(float InDeltaTime)
+{
+	for (TSharedPtr<FRendererDisplayer> Displayer : Displayers)
+	{
+		Displayer->Tick(InDeltaTime);
+	}
+}
+
+ETickableTickType FRendererDisplayerSystem::GetTickableTickType() const
+{
+	return ETickableTickType::Always;
+}
+
+TStatId FRendererDisplayerSystem::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(FRendererDisplayerSystem, STATGROUP_Tickables);
+}
+
+TSharedPtr<FRendererDisplayer> FRendererDisplayerSystem::CreateRendererDisplayer()
+{
+	TSharedRef<FRendererDisplayer> Displayer = SNew(FRendererDisplayer)
+		.AutoCenter(EAutoCenter::PreferredWorkArea)
+		.Title(LOCTEXT("RendererDisplayerHeading", "Renderer Displayer"))
+		.SupportsMinimize(true)
+		.SupportsMaximize(true)
+		.MinHeight(100)
+		.MinWidth(100)
+		.ClientSize(FVector2D(1920.0, 1080.0));
+
+	TSharedRef<SWidget> DisplayerContent = FRendererDisplayerModule::GetDispalyerContent();
+	Displayer->SetContent(DisplayerContent);
+
+	Get().Displayers.Add(Displayer);
+
+	return Displayer;
+}
+
+void FRendererDisplayerSystem::RemoveRendererDisplayer(TSharedPtr<FRendererDisplayer> InDisplayer)
+{
+	Get().Displayers.Remove(InDisplayer);
 }
 
 #undef LOCTEXT_NAMESPACE

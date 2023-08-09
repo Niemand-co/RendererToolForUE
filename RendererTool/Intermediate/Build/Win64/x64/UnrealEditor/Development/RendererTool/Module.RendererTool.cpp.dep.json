@@ -1,0 +1,30 @@
+{
+    "Version": "1.1",
+    "Data": {
+        "Source": "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\renderertool\\module.renderertool.cpp",
+        "ProvidedModule": "",
+        "PCH": "c:\\uedemo\\unrealengine\\engine\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\unrealed\\sharedpch.unrealed.shadowerrors.inclorderunreal5_0.h.pch",
+        "Includes": [
+            "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\renderertool\\definitions.renderertool.h",
+            "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\source\\renderertool\\private\\editor\\rendererdisplayer.cpp",
+            "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\source\\renderertool\\public\\editor\\rendererdisplayer.h",
+            "c:\\uedemo\\unrealengine\\engine\\source\\runtime\\slate\\public\\widgets\\sviewport.h",
+            "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\source\\renderertool\\private\\renderertool.cpp",
+            "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\source\\renderertool\\public\\renderertool.h",
+            "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\source\\renderertool\\public\\renderertoolactions.h",
+            "c:\\uedemo\\unrealengine\\engine\\source\\editor\\leveleditor\\public\\leveleditor.h",
+            "c:\\uedemo\\unrealengine\\engine\\source\\editor\\leveleditor\\public\\ileveleditor.h",
+            "c:\\uedemo\\unrealengine\\engine\\source\\runtime\\engine\\public\\elements\\framework\\engineelementslibrary.h",
+            "c:\\uedemo\\unrealengine\\engine\\intermediate\\build\\win64\\unrealeditor\\inc\\engine\\uht\\engineelementslibrary.generated.h",
+            "c:\\uedemo\\unrealengine\\engine\\source\\editor\\leveleditor\\public\\viewporttypedefinition.h",
+            "c:\\uedemo\\unrealengine\\engine\\source\\editor\\leveleditor\\public\\leveleditoroutlinersettings.h",
+            "c:\\uedemo\\unrealengine\\engine\\source\\developer\\toolwidgets\\public\\filters\\genericfilter.h",
+            "c:\\uedemo\\unrealengine\\engine\\source\\developer\\toolwidgets\\public\\filters\\filterbase.h",
+            "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\source\\renderertool\\private\\renderertoolactions.cpp",
+            "c:\\uedemo\\unrealengine\\engine\\source\\editor\\unrealed\\public\\toolkits\\globaleditorcommoncommands.h",
+            "c:\\uedemo\\wishgidemo\\plugins\\renderertool\\source\\renderertool\\private\\renderertoolmenu.cpp"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}
