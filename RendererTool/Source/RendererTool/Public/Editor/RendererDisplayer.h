@@ -1,27 +1,45 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "Widgets/SWindow.h"
-#include "Widgets/DeclarativeSyntaxSupport.h"
 #include "TickableEditorObject.h"
+#include "Renderer/RendererToolViewport.h"
+
+class FRendererDisplayer;
 
 class FRendererDisplayerModule
 {
 public:
 
-	static TSharedRef<SWidget> GetDispalyerContent();
+	static TSharedPtr<FRendererDisplayer> CreateDefaultRendererDisplayer();
 
 };
+
+class FRendererToolViewportClient;
 
 class FRendererDisplayer : public SWindow
 {
 public:
 
-	FRendererDisplayer();
+	FRendererDisplayer() = default;
+
+	FRendererDisplayer(TSharedPtr<SViewport> InViewportWidget);
 
 	virtual ~FRendererDisplayer();
 
+	void Construct(const FArguments& Arguments, TSharedPtr<SViewport> InViewportWidget);
+
 	virtual void Tick(float InDeltaTime);
+
+	FORCEINLINE TSharedPtr<FViewport> GetViewportClient() const
+	{
+		return ViewportClient->GetViewport();
+	}
+
+private:
+
+	TSharedPtr<FRendererToolViewportClient> ViewportClient = nullptr;
+
+	TObjectPtr<UWorld> World = nullptr;
 
 	friend class FRendererDisplayerSystem;
 

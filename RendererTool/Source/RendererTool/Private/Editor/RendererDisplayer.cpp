@@ -3,9 +3,11 @@
 
 #define LOCTEXT_NAMESPACE "RendererDisplayer"
 
-TSharedRef<SWidget> FRendererDisplayerModule::GetDispalyerContent()
+TSharedPtr<FRendererDisplayer> FRendererDisplayerModule::CreateDefaultRendererDisplayer()
 {
-	return SNew( SOverlay )
+	TSharedPtr<SViewport> ViewportWidget;
+
+	TSharedPtr<SWidget> DisplayerContent = SNew( SOverlay )
 			+ SOverlay::Slot()
 			.HAlign(HAlign_Fill)
 			.VAlign(VAlign_Top)
@@ -55,7 +57,7 @@ TSharedRef<SWidget> FRendererDisplayerModule::GetDispalyerContent()
 				.Resizable(true)
 				.MinSize(25)
 				[
-					SNew( SViewport )
+					SAssignNew( ViewportWidget, SViewport )
 				]
 				+ SSplitter::Slot()
 				.Resizable(true)
@@ -74,16 +76,39 @@ TSharedRef<SWidget> FRendererDisplayerModule::GetDispalyerContent()
 					]
 				]
 			];
+
+	TSharedRef<FRendererDisplayer> Displayer = SNew(FRendererDisplayer, ViewportWidget)
+		.AutoCenter(EAutoCenter::PreferredWorkArea)
+		.Title(LOCTEXT("RendererDisplayerHeading", "Renderer Displayer"))
+		.SupportsMinimize(true)
+		.SupportsMaximize(true)
+		.MinHeight(100)
+		.MinWidth(100)
+		.ClientSize(FVector2D(1920.0, 1080.0));
+
+	Displayer->SetContent(DisplayerContent.ToSharedRef());
+
+	return Displayer;
 }
 
-FRendererDisplayer::FRendererDisplayer()
+FRendererDisplayer::FRendererDisplayer(TSharedPtr<SViewport> InViewportWidget)
 {
+	World = UWorld::CreateWorld(EWorldType::Editor, true);
 
+	ViewportClient = MakeShareable(new FRendererToolViewportClient(World, InViewportWidget));
 }
 
 FRendererDisplayer::~FRendererDisplayer()
 {
 	FRendererDisplayerSystem::RemoveRendererDisplayer(MakeShareable(this));
+}
+
+void FRendererDisplayer::Construct(const FArguments& Arguments, TSharedPtr<SViewport> InViewportWidget)
+{
+	World = UWorld::CreateWorld(EWorldType::Editor, true);
+
+	this->ViewportClient = MakeShareable(new FRendererToolViewportClient(World, InViewportWidget));
+	SWindow::Construct(Arguments);
 }
 
 void FRendererDisplayer::Tick(float InDeltaTime)
@@ -111,18 +136,7 @@ TStatId FRendererDisplayerSystem::GetStatId() const
 
 TSharedPtr<FRendererDisplayer> FRendererDisplayerSystem::CreateRendererDisplayer()
 {
-	TSharedRef<FRendererDisplayer> Displayer = SNew(FRendererDisplayer)
-		.AutoCenter(EAutoCenter::PreferredWorkArea)
-		.Title(LOCTEXT("RendererDisplayerHeading", "Renderer Displayer"))
-		.SupportsMinimize(true)
-		.SupportsMaximize(true)
-		.MinHeight(100)
-		.MinWidth(100)
-		.ClientSize(FVector2D(1920.0, 1080.0));
-
-	TSharedRef<SWidget> DisplayerContent = FRendererDisplayerModule::GetDispalyerContent();
-	Displayer->SetContent(DisplayerContent);
-
+	TSharedPtr<FRendererDisplayer> Displayer = FRendererDisplayerModule::CreateDefaultRendererDisplayer();
 	Get().Displayers.Add(Displayer);
 
 	return Displayer;

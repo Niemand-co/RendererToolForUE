@@ -2,8 +2,7 @@
 
 #include "RendererTool.h"
 #include "ToolMenus.h"
-#include "RendererToolActions.h"
-#include "LevelEditor.h"
+#include "Editor/RendererToolActions.h"
 
 #define LOCTEXT_NAMESPACE "FRendererToolModule"
 
