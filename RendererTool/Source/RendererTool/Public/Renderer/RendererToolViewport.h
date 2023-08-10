@@ -24,10 +24,16 @@ public:
 
 	TSharedPtr<FViewport> GetViewport() const { return Viewport; }
 
+	FSceneInterface* GetScene() const;
+
+	virtual void Draw(FViewport* InViewport, FCanvas* InCanvas);
+
 protected:
 
 	TObjectPtr<UWorld> World;
 
-	TSharedPtr<FViewport> Viewport;
+	TSharedPtr<FSceneViewport> Viewport;
+
+	class UTextureRenderTarget2D* RenderTarget;
 
 };

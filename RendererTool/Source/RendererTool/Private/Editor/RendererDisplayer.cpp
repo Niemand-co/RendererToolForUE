@@ -1,5 +1,6 @@
 #include "Editor/RendererDisplayer.h"
 #include "Widgets/SViewport.h"
+#include "Renderer/RendererToolViewport.h"
 
 #define LOCTEXT_NAMESPACE "RendererDisplayer"
 
@@ -105,15 +106,21 @@ FRendererDisplayer::~FRendererDisplayer()
 
 void FRendererDisplayer::Construct(const FArguments& Arguments, TSharedPtr<SViewport> InViewportWidget)
 {
-	World = UWorld::CreateWorld(EWorldType::Editor, true);
-
+	FWorldContext& RendererWorldContext = GEngine->CreateNewWorldContext(EWorldType::Editor);
+	RendererWorldContext.SetCurrentWorld(UWorld::CreateWorld(EWorldType::Editor, true));
+	this->World = RendererWorldContext.World();
 	this->ViewportClient = MakeShareable(new FRendererToolViewportClient(World, InViewportWidget));
+
 	SWindow::Construct(Arguments);
 }
 
 void FRendererDisplayer::Tick(float InDeltaTime)
 {
 	UE_LOG(LogTemp, Warning, TEXT("Test"));
+
+	World->Tick(ELevelTick::LEVELTICK_All, InDeltaTime);
+
+	ViewportClient->GetViewport()->Draw();
 }
 
 void FRendererDisplayerSystem::Tick(float InDeltaTime)

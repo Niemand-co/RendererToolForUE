@@ -1,0 +1,14 @@
+{
+    "Version": "1.2",
+    "Data": {
+        "Source": "d:\\projects\\ue5\\samplescene\\plugins\\renderertool\\source\\renderertool\\private\\renderertool.cpp",
+        "ProvidedModule": "",
+        "PCH": "d:\\projects\\ue5\\unrealengine\\engine\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\engine\\sharedpch.engine.shadowerrors.inclorderunreal5_1.h.pch",
+        "Includes": [
+            "d:\\projects\\ue5\\samplescene\\plugins\\renderertool\\intermediate\\build\\win64\\x64\\unrealeditor\\development\\renderertool\\definitions.renderertool.h",
+            "d:\\projects\\ue5\\samplescene\\plugins\\renderertool\\source\\renderertool\\public\\renderertool.h"
+        ],
+        "ImportedModules": [],
+        "ImportedHeaderUnits": []
+    }
+}
