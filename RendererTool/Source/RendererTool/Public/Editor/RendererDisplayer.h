@@ -30,6 +30,8 @@ public:
 
 	virtual void Tick(float InDeltaTime);
 
+	//virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
+
 	FORCEINLINE TSharedPtr<FViewport> GetViewportClient() const
 	{
 		return ViewportClient->GetViewport();

@@ -10,30 +10,6 @@ public:
 
 	~FRendererToolViewport();
 
-};
-
-class FRendererToolViewportClient : public FViewportClient
-{
-public:
-
-	FRendererToolViewportClient(UWorld* InWorld, TSharedPtr<SViewport> InViewportWidget);
-
-	~FRendererToolViewportClient();
-
-	virtual UWorld* GetWorld() const override { return World.Get(); }
-
-	TSharedPtr<FViewport> GetViewport() const { return Viewport; }
-
-	FSceneInterface* GetScene() const;
-
-	virtual void Draw(FViewport* InViewport, FCanvas* InCanvas);
-
-protected:
-
-	TObjectPtr<UWorld> World;
-
-	TSharedPtr<FSceneViewport> Viewport;
-
-	class UTextureRenderTarget2D* RenderTarget;
+	virtual void ProcessInput(float InDeltaTime) override;
 
 };
