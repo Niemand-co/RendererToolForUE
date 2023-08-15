@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "TickableEditorObject.h"
-#include "Renderer/RendererToolViewport.h"
+#include "Renderer/RendererToolViewportClient.h"
 
 class FRendererDisplayer;
 
@@ -32,7 +32,7 @@ public:
 
 	//virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
-	FORCEINLINE TSharedPtr<FViewport> GetViewportClient() const
+	FORCEINLINE TSharedPtr<FSceneViewport> GetViewportClient() const
 	{
 		return ViewportClient->GetViewport();
 	}

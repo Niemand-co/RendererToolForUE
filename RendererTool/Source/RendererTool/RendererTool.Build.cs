@@ -40,7 +40,9 @@ public class RendererTool : ModuleRules
 				"SlateCore",
                 "ToolMenus",
                 "UnrealEd",
-            }
+				"RHI",
+				"CoreUObject",
+			}
 			);
 		
 		

@@ -1,6 +1,7 @@
 #include "Editor/RendererDisplayer.h"
 #include "Widgets/SViewport.h"
 #include "Renderer/RendererToolViewport.h"
+#include "Renderer/RendererToolViewportClient.h"
 
 #define LOCTEXT_NAMESPACE "RendererDisplayer"
 
