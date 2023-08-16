@@ -71,8 +71,12 @@ public:
 
 	static void RemoveRendererDisplayer(TSharedPtr<FRendererDisplayer> InDisplayer);
 
+	static void AddToDestroyList(TSharedPtr<FRendererDisplayer> InDisplayer);
+
 private:
 
 	TArray<TSharedPtr<FRendererDisplayer>> Displayers;
+
+	TQueue<TSharedPtr<FRendererDisplayer>> DisplayersToDestroy;
 
 };

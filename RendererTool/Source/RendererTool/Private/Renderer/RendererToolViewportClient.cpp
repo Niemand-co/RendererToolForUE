@@ -7,219 +7,99 @@
 #include "SceneViewExtension.h"
 #include "LegacyScreenPercentageDriver.h"
 #include "Engine/StaticMeshActor.h"
+#include "Engine/DirectionalLight.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/DirectionalLightComponent.h"
 #include "UObject/ConstructorHelpers.h"
-
-FViewportTransform::FViewportTransform()
-	: Location( FVector::ZeroVector )
-	, Rotation( FRotator::ZeroRotator )
-{
-
-}
+#include "EditorModeManager.h"
 
 FRendererToolViewportClient::FRendererToolViewportClient(UWorld* InWorld, TSharedPtr<SViewport> InViewportWidget)
-	: World(InWorld)
-	, Viewport(MakeShareable(new FRendererToolViewport(this, InViewportWidget)))
-	, ViewState()
-	, ViewType(LVT_Perspective)
-	, EngineShowFlags(ESFIM_Game)
-	, ViewIndex(INDEX_NONE)
-	, ViewFOV(EditorViewportDefs::DefaultPerspectiveFOVAngle)
-	, AspectRatio(1.777777f)
-	, NearPlane(-1.0f)
-	, FarPlane(1.0f)
-	, CurrentCursorPos(FIntPoint(-1, -1))
+	: FEditorViewportClient(&GLevelEditorModeTools())
+	, World(InWorld)
+	, LocalViewport(MakeShareable(new FRendererToolViewport(this, InViewportWidget)))
 {
-	InViewportWidget->SetViewportInterface(Viewport.ToSharedRef());
+	InViewportWidget->SetViewportInterface(LocalViewport.ToSharedRef());
 
-	FSceneInterface *Scene = GetScene();
-	ViewState.Allocate((Scene != nullptr) ? Scene->GetFeatureLevel() : GMaxRHIFeatureLevel);
+	Viewport = LocalViewport.Get();
 
-	AStaticMeshActor *Sphere = GetWorld()->SpawnActor<AStaticMeshActor>(FVector(), FRotator());
-	ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMeshAsset(TEXT("StaticMesh'/Engine/BasicShapes/Sphere.Sphere'"));
-	UStaticMesh *SphereMesh = SphereMeshAsset.Object;
-	Sphere->GetComponentByClass<UStaticMeshComponent>()->SetStaticMesh(SphereMesh);
+	const FStringAssetReference SphereAssetPath(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
+	UStaticMesh* SphereMesh = Cast<UStaticMesh>(SphereAssetPath.TryLoad());
+	if (SphereMesh)
+	{
+		AStaticMeshActor* Sphere = World->SpawnActor<AStaticMeshActor>();
+		Sphere->GetComponentByClass<UStaticMeshComponent>()->SetStaticMesh(SphereMesh);
+		const FStringAssetReference SphereMaterialAsset(TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial"));
+		UMaterialInterface* SphereMaterial = Cast<UMaterialInterface>(SphereMaterialAsset.TryLoad());
+		if (SphereMaterial)
+		{
+			Sphere->GetComponentByClass<UStaticMeshComponent>()->SetMaterial(0, SphereMaterial);
+		}
+
+		AActor *Light = World->SpawnActor<AActor>();
+		Light->AddComponentByClass(UDirectionalLightComponent::StaticClass(), false, FTransform(), false);
+		
+		const FStringAssetReference SkySphereAsset(TEXT("/Engine/EngineSky/SM_SkySphere.SM_SkySphere"));
+		UStaticMesh* SkySphereMesh = Cast<UStaticMesh>(SkySphereAsset.TryLoad());
+		if (SkySphereMesh)
+		{
+			AStaticMeshActor* SkySphere = World->SpawnActor<AStaticMeshActor>();
+			SkySphere->GetComponentByClass<UStaticMeshComponent>()->SetStaticMesh(SkySphereMesh);
+			const FStringAssetReference SkyMaterialAsset(TEXT("/Engine/EngineSky/M_SimpleSkyDome.M_SimpleSkyDome"));
+			UMaterialInterface *Material = Cast<UMaterialInterface>(SkyMaterialAsset.TryLoad());
+			if (Material)
+			{
+				SkySphere->GetComponentByClass<UStaticMeshComponent>()->SetMaterial(0, Material);
+			}
+		}
+	}
 }
 
 FRendererToolViewportClient::~FRendererToolViewportClient()
 {
+	UE_LOG(LogTemp, Warning, TEXT("Client Die"))
 }
 
-FSceneInterface* FRendererToolViewportClient::GetScene() const
+//void FRendererToolViewportClient::Draw(FViewport* InViewport, FCanvas* InCanvas)
+//{
+//	FGameTime Time;
+//	if (!World || GetScene() != World->Scene)
+//	{
+//		Time = FGameTime::GetTimeSinceAppStart();
+//	}
+//	else
+//	{
+//		Time = World->GetTime();
+//	}
+//
+//	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
+//		InCanvas->GetRenderTarget(),
+//		GetScene(),
+//		EngineShowFlags)
+//		.SetTime(Time)
+//		.SetViewModeParam(VMI_Lit, "Lit"));
+//
+//	FSceneView *View = CalcSceneView(&ViewFamily);
+//
+//	ViewFamily.ViewMode = GetViewMode();
+//
+//	if (ViewFamily.GetScreenPercentageInterface() == nullptr)
+//	{
+//		float GlobalResolutionFraction = 1.0f;
+//
+//		ViewFamily.SetScreenPercentageInterface(new FLegacyScreenPercentageDriver(ViewFamily, 1.0f));
+//	}
+//
+//	GetRendererModule().BeginRenderingViewFamily(InCanvas, &ViewFamily);
+//
+//	//if (View)
+//	//{
+//	//	DrawCanvas(*Viewport, *View, *InCanvas);
+//
+//	//	DrawSafeFrames(*Viewport, *View, *InCanvas);
+//	//}
+//}
+
+void FRendererToolViewportClient::Tick(float DeltaSeconds)
 {
-	if (World)
-	{
-		return World->Scene;
-	}
-	return nullptr;
-}
-
-void FRendererToolViewportClient::Draw(FViewport* InViewport, FCanvas* InCanvas)
-{
-	FGameTime Time;
-	if (!World || GetScene() != World->Scene)
-	{
-		Time = FGameTime::GetTimeSinceAppStart();
-	}
-	else
-	{
-		Time = World->GetTime();
-	}
-
-	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(
-		InCanvas->GetRenderTarget(),
-		GetScene(),
-		EngineShowFlags)
-		.SetTime(Time)
-		.SetViewModeParam(VMI_Lit, "Lit"));
-
-	FSceneView *View = CalcSceneView(&ViewFamily);
-
-	ViewFamily.ViewMode = GetViewMode();
-
-	if (ViewFamily.GetScreenPercentageInterface() == nullptr)
-	{
-		float GlobalResolutionFraction = 1.0f;
-
-		ViewFamily.SetScreenPercentageInterface(new FLegacyScreenPercentageDriver(ViewFamily, 1.0f));
-	}
-
-	GetRendererModule().BeginRenderingViewFamily(InCanvas, &ViewFamily);
-
-	//if (View)
-	//{
-	//	DrawCanvas(*Viewport, *View, *InCanvas);
-
-	//	DrawSafeFrames(*Viewport, *View, *InCanvas);
-	//}
-}
-
-void FRendererToolViewportClient::AddReferencedObjects(FReferenceCollector& Collector)
-{
-	if (ViewState.GetReference())
-	{
-		ViewState.GetReference()->AddReferencedObjects(Collector);
-	}
-}
-
-FString FRendererToolViewportClient::GetReferencerName() const
-{
-	return TEXT("FRendererToolViewportClient");
-}
-
-FSceneView* FRendererToolViewportClient::CalcSceneView(FSceneViewFamily* InViewFamily)
-{
-	FSceneViewInitOptions ViewInitOption;
-
-	FViewportTransform& ViewTransform = GetViewTransform();
-	ViewInitOption.ViewOrigin = ViewTransform.GetLocation();
-
-	FIntPoint ViewportSize = Viewport->GetSizeXY();
-	EAspectRatioAxisConstraint AspectRatioAxisConstraint = GetDefault<ULevelEditorViewportSettings>()->AspectRatioAxisConstraint;
-
-	ViewInitOption.SetViewRectangle(FIntRect(FIntPoint(), ViewportSize));
-
-	if (ViewType == ELevelViewportType::LVT_Perspective)
-	{
-		float MinZ = GetNearPlane();
-		float MaxZ = MinZ;
-
-		ViewInitOption.ViewRotationMatrix = FInverseRotationMatrix(ViewTransform.GetRotation());
-
-		float XAxisMultiplier;
-		float YAxisMultiplier;
-
-		if ((ViewportSize.X > ViewportSize.Y) && ((AspectRatioAxisConstraint == AspectRatio_MajorAxisFOV) || (AspectRatioAxisConstraint == AspectRatio_MaintainXFOV)))
-		{
-			XAxisMultiplier = 1.0f;
-			YAxisMultiplier = ((float)ViewportSize.X / (float)ViewportSize.Y);
-		}
-		else
-		{
-			XAxisMultiplier = ((float)ViewportSize.Y / (float)ViewportSize.X);
-			YAxisMultiplier = 1.0f;
-		}
-
-		if ((bool)ERHIZBuffer::IsInverted)
-		{
-			ViewInitOption.ProjectionMatrix = FReversedZPerspectiveMatrix(ViewFOV, ViewFOV, XAxisMultiplier, YAxisMultiplier, MinZ, MaxZ);
-		}
-		else
-		{
-			ViewInitOption.ProjectionMatrix = FPerspectiveMatrix(ViewFOV, ViewFOV, XAxisMultiplier, YAxisMultiplier, MinZ, MaxZ);
-		}
-	}
-	else
-	{
-
-	}
-
-	if (!ViewInitOption.IsValidViewRectangle())
-	{
-		ViewInitOption.SetViewRectangle(FIntRect(0, 0, 1, 1));
-	}
-
-	ViewInitOption.ViewFamily = InViewFamily;
-	ViewInitOption.SceneViewStateInterface = ViewState.GetReference();
-	ViewInitOption.StereoViewIndex = INDEX_NONE;
-
-	ViewInitOption.ViewElementDrawer = this;
-
-	ViewInitOption.BackgroundColor = FColor(255, 55, 55);
-
-	ViewInitOption.EditorViewBitflag = 1;
-
-	ViewInitOption.OverrideLODViewOrigin = FVector::ZeroVector;
-	ViewInitOption.bUseFauxOrthoViewPos = true;
-
-	ViewInitOption.FOV = ViewFOV;
-
-	ViewInitOption.CursorPos = CurrentCursorPos;
-
-	FSceneView *View = new FSceneView(ViewInitOption);
-
-	View->ViewLocation = ViewTransform.GetLocation();
-	View->ViewRotation = ViewTransform.GetRotation();
-
-	View->StartFinalPostprocessSettings(View->ViewLocation);
-
-	InViewFamily->Views.Add(View);
-
-	for (int ViewExt = 0; ViewExt < InViewFamily->ViewExtensions.Num(); ViewExt++)
-	{
-		InViewFamily->ViewExtensions[ViewExt]->SetupView(*InViewFamily, *View);
-	}
-
-	return View;
-}
-
-bool FRendererToolViewportClient::SupportsPreviewResolutionFraction() const
-{
-	switch (GetViewMode())
-	{
-	case VMI_BrushWireframe:
-	case VMI_Wireframe:
-	case VMI_LightComplexity:
-	case VMI_LightmapDensity:
-	case VMI_LitLightmapDensity:
-	case VMI_ReflectionOverride:
-	case VMI_StationaryLightOverlap:
-	case VMI_CollisionPawn:
-	case VMI_CollisionVisibility:
-	case VMI_LODColoration:
-	case VMI_PrimitiveDistanceAccuracy:
-	case VMI_MeshUVDensityAccuracy:
-	case VMI_HLODColoration:
-	case VMI_GroupLODColoration:
-	case VMI_VisualizeGPUSkinCache:
-		return false;
-	}
-
-	// Don't do preview screen percentage in certain cases.
-	if (EngineShowFlags.VisualizeBuffer || EngineShowFlags.VisualizeNanite || EngineShowFlags.VisualizeVirtualShadowMap)
-	{
-		return false;
-	}
-
-	return true;
+	FEditorViewportClient::Tick(DeltaSeconds);
 }

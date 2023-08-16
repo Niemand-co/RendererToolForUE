@@ -88,6 +88,11 @@ TSharedPtr<FRendererDisplayer> FRendererDisplayerModule::CreateDefaultRendererDi
 		.MinWidth(100)
 		.ClientSize(FVector2D(1920.0, 1080.0));
 
+	//Displayer->SetOnWindowClosed(FOnWindowClosed::CreateLambda([=]()
+	//{
+	//	FRendererDisplayerSystem::AddToDestroyList(Displayer);
+	//}));
+
 	Displayer->SetContent(DisplayerContent.ToSharedRef());
 
 	return Displayer;
@@ -102,7 +107,7 @@ FRendererDisplayer::FRendererDisplayer(TSharedPtr<SViewport> InViewportWidget)
 
 FRendererDisplayer::~FRendererDisplayer()
 {
-	FRendererDisplayerSystem::RemoveRendererDisplayer(MakeShareable(this));
+	UE_LOG(LogTemp, Warning, TEXT("Displayer Die"))
 }
 
 void FRendererDisplayer::Construct(const FArguments& Arguments, TSharedPtr<SViewport> InViewportWidget)
@@ -121,6 +126,8 @@ void FRendererDisplayer::Tick(float InDeltaTime)
 
 	World->Tick(ELevelTick::LEVELTICK_All, InDeltaTime);
 
+	ViewportClient->Tick(InDeltaTime);
+
 	ViewportClient->GetViewport()->Draw();
 }
 
@@ -129,6 +136,14 @@ void FRendererDisplayerSystem::Tick(float InDeltaTime)
 	for (TSharedPtr<FRendererDisplayer> Displayer : Displayers)
 	{
 		Displayer->Tick(InDeltaTime);
+	}
+
+	while (!DisplayersToDestroy.IsEmpty())
+	{
+		TSharedPtr<FRendererDisplayer> Displayer;
+		check(DisplayersToDestroy.Dequeue(Displayer));
+
+		Displayers.Remove(Displayer);
 	}
 }
 
@@ -153,6 +168,11 @@ TSharedPtr<FRendererDisplayer> FRendererDisplayerSystem::CreateRendererDisplayer
 void FRendererDisplayerSystem::RemoveRendererDisplayer(TSharedPtr<FRendererDisplayer> InDisplayer)
 {
 	Get().Displayers.Remove(InDisplayer);
+}
+
+void FRendererDisplayerSystem::AddToDestroyList(TSharedPtr<FRendererDisplayer> InDisplayer)
+{
+	Get().DisplayersToDestroy.Enqueue(InDisplayer);
 }
 
 #undef LOCTEXT_NAMESPACE
