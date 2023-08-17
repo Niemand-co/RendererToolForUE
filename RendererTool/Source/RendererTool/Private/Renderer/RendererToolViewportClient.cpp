@@ -56,6 +56,8 @@ FRendererToolViewportClient::FRendererToolViewportClient(UWorld* InWorld, TShare
 
 FRendererToolViewportClient::~FRendererToolViewportClient()
 {
+	Viewport = NULL;
+	World = NULL;
 	UE_LOG(LogTemp, Warning, TEXT("Client Die"))
 }
 

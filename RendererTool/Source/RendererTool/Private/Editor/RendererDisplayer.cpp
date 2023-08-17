@@ -88,10 +88,10 @@ TSharedPtr<FRendererDisplayer> FRendererDisplayerModule::CreateDefaultRendererDi
 		.MinWidth(100)
 		.ClientSize(FVector2D(1920.0, 1080.0));
 
-	//Displayer->SetOnWindowClosed(FOnWindowClosed::CreateLambda([=]()
-	//{
-	//	FRendererDisplayerSystem::AddToDestroyList(Displayer);
-	//}));
+	Displayer->SetOnWindowClosed(FOnWindowClosed::CreateLambda([=](const TSharedPtr<SWindow>& WindowArg)
+	{
+		FRendererDisplayerSystem::AddToDestroyList(StaticCastSharedPtr<FRendererDisplayer>(WindowArg));
+	}));
 
 	Displayer->SetContent(DisplayerContent.ToSharedRef());
 
@@ -107,6 +107,7 @@ FRendererDisplayer::FRendererDisplayer(TSharedPtr<SViewport> InViewportWidget)
 
 FRendererDisplayer::~FRendererDisplayer()
 {
+	World->DestroyWorld(true);
 	UE_LOG(LogTemp, Warning, TEXT("Displayer Die"))
 }
 
