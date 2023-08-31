@@ -12,7 +12,7 @@ public:
 
 	TSharedPtr<FSceneViewport> GetViewport() const { return LocalViewport; }
 
-	//virtual void Draw(FViewport* InViewport, FCanvas* InCanvas);
+	virtual void Draw(FViewport* InViewport, FCanvas* InCanvas);
 
 	virtual void Tick(float DeltaSeconds) override;
 

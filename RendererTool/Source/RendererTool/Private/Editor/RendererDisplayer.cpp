@@ -123,8 +123,6 @@ void FRendererDisplayer::Construct(const FArguments& Arguments, TSharedPtr<SView
 
 void FRendererDisplayer::Tick(float InDeltaTime)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Test"));
-
 	World->Tick(ELevelTick::LEVELTICK_All, InDeltaTime);
 
 	ViewportClient->Tick(InDeltaTime);

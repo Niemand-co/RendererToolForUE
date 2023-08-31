@@ -13,10 +13,8 @@ FRendererToolViewport::FRendererToolViewport(FViewportClient* InViewportClient, 
 
 FRendererToolViewport::~FRendererToolViewport()
 {
-	UE_LOG(LogTemp, Warning, TEXT("Viewport Die"))
 }
 
 void FRendererToolViewport::ProcessInput(float InDeltaTime)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Tick"))
 }

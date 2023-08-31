@@ -42,7 +42,9 @@ public class RendererTool : ModuleRules
                 "UnrealEd",
 				"RHI",
 				"CoreUObject",
-			}
+                "Renderer",
+                "RenderCore",
+            }
 			);
 		
 		
