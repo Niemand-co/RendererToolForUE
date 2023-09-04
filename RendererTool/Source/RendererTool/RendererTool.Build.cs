@@ -26,6 +26,7 @@ public class RendererTool : ModuleRules
 			new string[]
 			{
 				"Core",
+                "Renderer",
             }
 			);
 			

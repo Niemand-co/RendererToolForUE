@@ -79,6 +79,6 @@ public:
 
 private:
 
-	void RenderBasePass(FRDGBuilder& GraphBuilder);
+	void RenderBasePass(FRHICommandListImmediate& RHICmdList, const FDisplayerViewInfo& ViewInfo);
 
 };

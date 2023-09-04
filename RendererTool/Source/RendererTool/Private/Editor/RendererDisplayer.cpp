@@ -2,6 +2,8 @@
 #include "Widgets/SViewport.h"
 #include "Renderer/RendererToolViewport.h"
 #include "Renderer/RendererToolViewportClient.h"
+#include "EngineModule.h"
+#include "Renderer/RendererToolScene.h"
 
 #define LOCTEXT_NAMESPACE "RendererDisplayer"
 
@@ -117,6 +119,10 @@ void FRendererDisplayer::Construct(const FArguments& Arguments, TSharedPtr<SView
 	RendererWorldContext.SetCurrentWorld(UWorld::CreateWorld(EWorldType::Editor, true));
 	this->World = RendererWorldContext.World();
 	this->ViewportClient = MakeShareable(new FRendererToolViewportClient(World, InViewportWidget));
+
+	GetRendererModule().RemoveScene(this->World->Scene);
+	this->World->Scene = new FDisplayerScene(World, ERHIFeatureLevel::SM5);
+
 
 	SWindow::Construct(Arguments);
 }
