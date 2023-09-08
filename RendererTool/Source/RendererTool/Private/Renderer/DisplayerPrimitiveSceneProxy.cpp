@@ -59,4 +59,6 @@ bool FDisplayerPrimitiveSceneProxy::WouldSetTransformBeInNeed(const FMatrix& InL
 	{
 		return true;
 	}
+
+	return false;
 }

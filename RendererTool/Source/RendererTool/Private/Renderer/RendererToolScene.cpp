@@ -65,14 +65,16 @@ void FDisplayerScene::AddPrimitive(UPrimitiveComponent* Primitive)
 		Primitive->GetLocalBounds()
 	};
 
+	FThreadSafeCounter* AttachmentCounter = &Primitive->AttachmentCounter;
 	ENQUEUE_RENDER_COMMAND(AddPrimitiveCommand)(
-		[Params = MoveTemp(Params), Scene, PrimitiveInfo](FRHICommandListImmediate& RHICmdList)
+		[Params = MoveTemp(Params), Scene, PrimitiveInfo, AttachmentCounter](FRHICommandListImmediate& RHICmdList)
 		{
 			FDisplayerPrimitiveSceneProxy* SceneProxy = Params.PrimitiveSceneProxy;
 			FScopeCycleCounter Context(SceneProxy->GetStatId());
 			//SceneProxy->SetTransform(Params.RenderMatrix, Params.WorldBounds, Params.LocalBounds, Params.AttachmentRootPosition);
 
 			Scene->AddPrimitiveSceneInfo_RenderThread(PrimitiveInfo);
+			AttachmentCounter->Increment();
 		});
 }
 
@@ -238,6 +240,22 @@ void FDisplayerScene::AddLight(ULightComponent* Light)
 
 void FDisplayerScene::RemoveLight(ULightComponent* Light)
 {
+	FDisplayerLightSceneProxy* LightSceneProxy = GetDisplayerSceneProxy(Light);
+
+	if (LightSceneProxy)
+	{
+		FDisplayerLightSceneInfo* LightSceneInfo = LightSceneProxy->LightSceneInfo;
+
+		EmptyDisplayerSceneProxy(Light);
+
+		FDisplayerScene* Scene = this;
+		ENQUEUE_RENDER_COMMAND(FRemoveLightCommand)(
+			[Scene, LightSceneInfo](FRHICommandListImmediate& RHICmdList)
+			{
+				Scene->RemoveLightSceneInfo_RenderThread(LightSceneInfo);
+			}
+		);
+	}
 }
 
 void FDisplayerScene::AddInvisibleLight(ULightComponent* Light)
@@ -590,6 +608,8 @@ FFXSystemInterface* FDisplayerScene::GetFXSystem()
 
 void FDisplayerScene::AddPrimitiveSceneInfo_RenderThread(FDisplayerPrimitiveSceneInfo* PrimitiveSceneInfo)
 {
+	check(IsInRenderingThread());
+
 	AddedPrimitiveSceneInfos.FindOrAdd(PrimitiveSceneInfo);
 }
 
@@ -622,9 +642,27 @@ void FDisplayerScene::AddLightSceneInfo_RenderThread(FDisplayerLightSceneInfo* L
 {
 	check(IsInRenderingThread());
 
-
+	AddedLightSceneInfos.FindOrAdd(LightSceneInfo);
 }
 
 void FDisplayerScene::RemoveLightSceneInfo_RenderThread(FDisplayerLightSceneInfo* LightSceneInfo)
 {
+	check(IsInRenderingThread());
+
+	if (AddedLightSceneInfos.Remove(LightSceneInfo))
+	{
+		UpdateLights.Remove(LightSceneInfo->Proxy);
+	}
+	else
+	{
+		check(RemovedLightSceneInfos.Find(LightSceneInfo) == nullptr)
+		RemovedLightSceneInfos.FindOrAdd(LightSceneInfo);
+	}
+}
+
+void FDisplayerScene::UpdateLight_RenderThread(FDisplayerLightSceneProxy* LightSceneProxy, const FMatrix& InLocalToWorld, const FVector& InLightPosition, const FLinearColor& InLightColor)
+{
+	check(IsInRenderingThread());
+
+	UpdateLights.Update(LightSceneProxy, { InLocalToWorld, InLightPosition, InLightColor });
 }

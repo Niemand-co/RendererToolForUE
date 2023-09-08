@@ -7,13 +7,11 @@ FDisplayerPrimitiveSceneInfo::FDisplayerPrimitiveSceneInfo(UPrimitiveComponent* 
 	check(Proxy)
 	check(PrimitiveId.IsValid())
 
-
-
-	DefaultDynamicHitProxy = Proxy->CreateHitProxies(InComponent, HitProxies);
-	if (DefaultDynamicHitProxy)
-	{
-		DefaultDynamicHitProxyId = DefaultDynamicHitProxy->Id;
-	}
+	//DefaultDynamicHitProxy = Proxy->CreateHitProxies(InComponent, HitProxies);
+	//if (DefaultDynamicHitProxy)
+	//{
+	//	DefaultDynamicHitProxyId = DefaultDynamicHitProxy->Id;
+	//}
 }
 
 FDisplayerPrimitiveSceneInfo::~FDisplayerPrimitiveSceneInfo()

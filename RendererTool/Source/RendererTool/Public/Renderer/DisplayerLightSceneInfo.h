@@ -10,7 +10,7 @@ public:
 
 	bool bVisible;
 
-	class FDisplayerScene *Scene;
+	class FSceneInterface *Scene;
 
 public:
 

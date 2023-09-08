@@ -2,6 +2,8 @@
 
 #include "LightSceneProxy.h"
 
+class FSceneInterface;
+
 class FDisplayerLightSceneProxy
 {
 public:
@@ -16,11 +18,14 @@ public:
 
 	void SetTransform(const FMatrix& InLocalToWorld, const FVector& InPosition);
 
+	FSceneInterface* GetScene() { return Scene; }
+	const FSceneInterface* GetScene() const { return Scene; }
+
 protected:
 
 	const class ULightComponent* LightComponent;
 
-	class FSceneInterface *Scene;
+	FSceneInterface *Scene;
 
 	FMatrix WorldToLocal;
 

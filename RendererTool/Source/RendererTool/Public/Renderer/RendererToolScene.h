@@ -22,9 +22,20 @@ public:
 		FVector AttachmentRootPosition;
 	};
 
+	struct FUpdateLightCommand
+	{
+		FMatrix LocalToWorld;
+		FVector LightPosition;
+		FLinearColor LightColor;
+	};
+
 	Experimental::TRobinHoodHashSet<FDisplayerPrimitiveSceneInfo*> AddedPrimitiveSceneInfos;
 	Experimental::TRobinHoodHashSet<FDisplayerPrimitiveSceneInfo*> RemovedPrimitiveSceneInfos;
 	Experimental::TRobinHoodHashMap<FDisplayerPrimitiveSceneProxy*, FUpdateTransformCommand> UpdateTransforms;
+
+	Experimental::TRobinHoodHashSet<FDisplayerLightSceneInfo*> AddedLightSceneInfos;
+	Experimental::TRobinHoodHashSet<FDisplayerLightSceneInfo*> RemovedLightSceneInfos;
+	Experimental::TRobinHoodHashMap<FDisplayerLightSceneProxy*, FUpdateLightCommand> UpdateLights;
 
 public:
 
@@ -42,8 +53,10 @@ public:
 	virtual void UpdatePrimitiveAttachment(UPrimitiveComponent* Primitive) override;
 	virtual void UpdateCustomPrimitiveData(UPrimitiveComponent* Primitive) override;
 	virtual void UpdatePrimitiveDistanceFieldSceneData_GameThread(UPrimitiveComponent* Primitive) override;
+
 	virtual FPrimitiveSceneInfo* GetPrimitiveSceneInfo(int32 PrimitiveIndex) override;
 	virtual FPrimitiveSceneInfo* GetPrimitiveSceneInfo(const FPersistentPrimitiveIndex& PersistentPrimitiveIndex) override;
+
 	virtual bool GetPreviousLocalToWorld(const FPrimitiveSceneInfo* PrimitiveSceneInfo, FMatrix& OutPreviousLocalToWorld) const override;
 	virtual void AddLight(ULightComponent* Light) override;
 	virtual void RemoveLight(ULightComponent* Light) override;
@@ -101,8 +114,8 @@ public:
 
 	virtual void AddSkyAtmosphere(FSkyAtmosphereSceneProxy* SkyAtmosphereSceneProxy, bool bStaticLightingBuilt) override;
 	virtual void RemoveSkyAtmosphere(FSkyAtmosphereSceneProxy* SkyAtmosphereSceneProxy) override;
-	virtual FSkyAtmosphereRenderSceneInfo* GetSkyAtmosphereSceneInfo() override { return SkyAtmosphere; }
-	virtual const FSkyAtmosphereRenderSceneInfo* GetSkyAtmosphereSceneInfo() const override { return SkyAtmosphere; }
+	virtual FSkyAtmosphereRenderSceneInfo* GetSkyAtmosphereSceneInfo() override { return nullptr; }
+	virtual const FSkyAtmosphereRenderSceneInfo* GetSkyAtmosphereSceneInfo() const override { return nullptr; }
 
 	virtual void AddSparseVolumeTextureViewer(FSparseVolumeTextureViewerSceneProxy* SVTV) override;
 	virtual void RemoveSparseVolumeTextureViewer(FSparseVolumeTextureViewerSceneProxy* SVTV) override;
@@ -114,8 +127,8 @@ public:
 
 	virtual void AddVolumetricCloud(FVolumetricCloudSceneProxy* VolumetricCloudSceneProxy) override;
 	virtual void RemoveVolumetricCloud(FVolumetricCloudSceneProxy* VolumetricCloudSceneProxy) override;
-	virtual FVolumetricCloudRenderSceneInfo* GetVolumetricCloudSceneInfo() override { return VolumetricCloud; }
-	virtual const FVolumetricCloudRenderSceneInfo* GetVolumetricCloudSceneInfo() const override { return VolumetricCloud; }
+	virtual FVolumetricCloudRenderSceneInfo* GetVolumetricCloudSceneInfo() override { return nullptr; }
+	virtual const FVolumetricCloudRenderSceneInfo* GetVolumetricCloudSceneInfo() const override { return nullptr; }
 
 	virtual void AddWindSource(UWindDirectionalSourceComponent* WindComponent) override;
 	virtual void RemoveWindSource(UWindDirectionalSourceComponent* WindComponent) override;
@@ -169,12 +182,12 @@ public:
 
 	virtual class FGPUSkinCache* GetGPUSkinCache() override
 	{
-		return GPUSkinCache;
+		return nullptr;
 	}
 
 	virtual void GetComputeTaskWorkers(TArray<class IComputeTaskWorker*>& OutWorkers) const override
 	{
-		OutWorkers = ComputeTaskWorkers;
+		//OutWorkers = ComputeTaskWorkers;
 	}
 
 	/**
@@ -190,7 +203,8 @@ public:
 	virtual bool HasAnyLights() const override
 	{
 		check(IsInGameThread());
-		return NumVisibleLights_GameThread > 0 || NumEnabledSkylights_GameThread > 0;
+		return true;
+		//return NumVisibleLights_GameThread > 0 || NumEnabledSkylights_GameThread > 0;
 	}
 
 private:
@@ -204,5 +218,7 @@ private:
 	void AddLightSceneInfo_RenderThread(FDisplayerLightSceneInfo* LightSceneInfo);
 
 	void RemoveLightSceneInfo_RenderThread(FDisplayerLightSceneInfo* LightSceneInfo);
+
+	void UpdateLight_RenderThread(FDisplayerLightSceneProxy* LightSceneProxy, const FMatrix& InLocalToWorld, const FVector& InLightPosition, const FLinearColor& InLightColor);
 
 };

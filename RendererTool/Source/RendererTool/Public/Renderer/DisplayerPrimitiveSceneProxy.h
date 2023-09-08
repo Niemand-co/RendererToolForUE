@@ -16,8 +16,6 @@ public:
 
 	virtual ~FDisplayerPrimitiveSceneProxy();
 
-	void SetTransform(const FMatrix& InLocalToWorld, const FBoxSphereBounds& InBounds, const FBoxSphereBounds& InLocalBounds, FVector InActorPosition);
-
 	TStatId GetStatId() const { return StatId; }
 
 private:

@@ -5,7 +5,7 @@ FDisplayerLightSceneInfo::FDisplayerLightSceneInfo(FDisplayerLightSceneProxy* In
 	: Proxy(InProxy)
 	, Id(INDEX_NONE)
 	, bVisible(InbVisible)
-	, Scene(InProxy->Scene)
+	, Scene(InProxy->GetScene())
 {
 }
 
