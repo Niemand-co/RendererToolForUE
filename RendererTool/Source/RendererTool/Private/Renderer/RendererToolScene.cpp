@@ -7,6 +7,42 @@
 #include "Renderer/DisplayerLightSceneInfo.h"
 #include "Renderer/DisplayerLightSceneProxy.h"
 
+struct FPrimitiveInfoArraySortKey
+{
+	inline bool operator()(const FDisplayerPrimitiveSceneInfo& A, const FDisplayerPrimitiveSceneInfo& B)
+	{
+		SIZE_T HashA = A.Proxy->GetTypeHash();
+		SIZE_T HashB = B.Proxy->GetTypeHash();
+
+		if (HashA == HashB)
+		{
+			return A.RegistrationSerialNumber < B.RegistrationSerialNumber;
+		}
+		else
+		{
+			return HashA < HashB;
+		}
+	}
+};
+
+template<typename T>
+static void TArraySwapElements(TArray<T>& Array, int32 i1, int32 i2)
+{
+	T tmp = Array[i1];
+	Array[i1] = Array[i2];
+	Array[i2] = tmp;
+}
+
+static void TBitArraySwapElements(TBitArray<>& Array, int32 i1, int32 i2)
+{
+	FBitReference BitRef1 = Array[i1];
+	FBitReference BitRef2 = Array[i2];
+	bool Bit1 = BitRef1;
+	bool Bit2 = BitRef2;
+	BitRef1 = Bit2;
+	BitRef2 = Bit1;
+}
+
 FDisplayerScene::FDisplayerScene(UWorld* InWorld, ERHIFeatureLevel::Type InFeatureLevel)
 	: FSceneInterface(InFeatureLevel)
 	, World(InWorld)
@@ -71,7 +107,7 @@ void FDisplayerScene::AddPrimitive(UPrimitiveComponent* Primitive)
 		{
 			FDisplayerPrimitiveSceneProxy* SceneProxy = Params.PrimitiveSceneProxy;
 			FScopeCycleCounter Context(SceneProxy->GetStatId());
-			//SceneProxy->SetTransform(Params.RenderMatrix, Params.WorldBounds, Params.LocalBounds, Params.AttachmentRootPosition);
+			SceneProxy->SetTransform(Params.RenderMatrix, Params.WorldBounds, Params.LocalBounds, Params.AttachmentRootPosition);
 
 			Scene->AddPrimitiveSceneInfo_RenderThread(PrimitiveInfo);
 			AttachmentCounter->Increment();
@@ -106,7 +142,204 @@ void FDisplayerScene::ReleasePrimitive(UPrimitiveComponent* Primitive)
 
 void FDisplayerScene::UpdateAllPrimitiveSceneInfos(FRDGBuilder& GraphBuilder, EUpdateAllPrimitiveSceneInfosAsyncOps AsyncOps)
 {
-	//FScene::UpdateAllPrimitiveSceneInfos(GraphBuilder, AsyncOps);
+	TArray<FDisplayerPrimitiveSceneInfo*> RemovedLocalPrimitiveSceneInfos;
+	RemovedLocalPrimitiveSceneInfos.Reserve(RemovedPrimitiveSceneInfos.Num());
+	for (FDisplayerPrimitiveSceneInfo* PrimitiveSceneInfo : RemovedPrimitiveSceneInfos)
+	{
+		RemovedLocalPrimitiveSceneInfos.Add(PrimitiveSceneInfo);
+	}
+	RemovedPrimitiveSceneInfos.Empty();
+
+	RemovedLocalPrimitiveSceneInfos.Sort(FPrimitiveInfoArraySortKey());
+
+	TArray<FDisplayerPrimitiveSceneInfo*> AddedLocalPrimitiveSceneInfos;
+	AddedLocalPrimitiveSceneInfos.Reserve(AddedPrimitiveSceneInfos.Num());
+	for (FDisplayerPrimitiveSceneInfo* PrimitiveSceneInfo : AddedPrimitiveSceneInfos)
+	{
+		AddedLocalPrimitiveSceneInfos.Add(PrimitiveSceneInfo);
+	}
+	AddedPrimitiveSceneInfos.Empty();
+
+	AddedLocalPrimitiveSceneInfos.Sort(FPrimitiveInfoArraySortKey());
+
+	TArray<FDisplayerPrimitiveSceneInfo*> SceneInfosWithStaticDrawListUpdate;
+	TArray<FDisplayerPrimitiveSceneInfo*> SceneInfosWithoutStaticDrawListUpdate;
+
+	SceneInfosWithStaticDrawListUpdate.Reserve(AddedLocalPrimitiveSceneInfos.Num() + UpdateTransforms.Num());
+	SceneInfosWithoutStaticDrawListUpdate.Reserve(AddedLocalPrimitiveSceneInfos.Num() + UpdateTransforms.Num());
+
+	while (RemovedLocalPrimitiveSceneInfos.Num())
+	{
+		int32 StartIndex = RemovedLocalPrimitiveSceneInfos.Num() - 1;
+		SIZE_T ProxyHash = RemovedLocalPrimitiveSceneInfos[StartIndex]->Proxy->GetTypeHash();
+
+		for (; StartIndex > 0 && RemovedLocalPrimitiveSceneInfos[StartIndex - 1]->Proxy->GetTypeHash() == ProxyHash; --StartIndex)
+		{
+		}
+
+		/**
+		* Example shows relationship between primitive info array and type offset table.
+		* PrimitiveInfoArray: [0, 0, 0, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, 6]
+		* TypeOffsetTable: [4(0), 7(1), 8(5), 10(2), 13(3), 14(4), 15(6)] (PrefixSum(Hash))
+		*/
+		int32 BroadIndex = 0;
+		for (int32 TypeIndex = 0; TypeIndex < TypeOffsetTable.Num(); ++TypeIndex)
+		{
+			if (TypeOffsetTable[TypeIndex].TypeHash == ProxyHash)
+			{
+				int32 InsertOffset = TypeOffsetTable[TypeIndex].Offset;
+				int32 PreOffset = TypeIndex > 0 ? TypeOffsetTable[TypeIndex].Offset : 0;
+				for (int32 CheckIndex = StartIndex; CheckIndex < RemovedLocalPrimitiveSceneInfos.Num(); ++CheckIndex)
+				{
+					int32 PrimitiveIndex = RemovedLocalPrimitiveSceneInfos[CheckIndex]->PackedIndex;
+					check(PrimitiveIndex >= PreOffset && PrimitiveIndex < InsertOffset);
+				}
+				BroadIndex = TypeIndex;
+				break;
+			}
+		}
+
+		/**
+		* Example of removing a primitive info.
+		* [0, 0, X, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, 6]
+		* [0, 0, 0, X, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, 6]
+		* [0, 0, 0, 1, 1, 1, X, 5, 2, 2, 3, 3, 3, 4, 6]
+		* [0, 0, 0, 1, 1, 1, 5, X, 2, 2, 3, 3, 3, 4, 6]
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, X, 3, 3, 3, 4, 6]
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, X, 4, 6]
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, X, 6]
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, 6, X]
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, 6]
+		*/
+		for (int32 CheckIndex = StartIndex; CheckIndex < RemovedLocalPrimitiveSceneInfos.Num(); ++CheckIndex)
+		{
+			int32 SourceIndex = RemovedLocalPrimitiveSceneInfos[CheckIndex]->PackedIndex;
+
+			for (int32 TypeIndex = SourceIndex == (TypeOffsetTable[BroadIndex].Offset - 1) ? BroadIndex + 1 : BroadIndex; TypeIndex < TypeOffsetTable.Num(); ++TypeIndex)
+			{
+				FTypeOffsetEntry& Entry = TypeOffsetTable[TypeIndex];
+				int32 DestIndex = --Entry.Offset;
+
+				Primitives[SourceIndex]->PackedIndex = DestIndex;
+				Primitives[DestIndex]->PackedIndex = SourceIndex;
+
+				TArraySwapElements(Primitives, SourceIndex, DestIndex);
+				TArraySwapElements(PrimitiveTransforms, SourceIndex, DestIndex);
+				TArraySwapElements(PrimitiveSceneProxies, SourceIndex, DestIndex);
+				TArraySwapElements(PrimitiveBounds, SourceIndex, DestIndex);
+
+				SourceIndex = DestIndex;
+			}
+		}
+
+		int32 PreviousOffset = BroadIndex > 0 ? TypeOffsetTable[BroadIndex - 1].Offset : 0;
+		int32 InsertionOffset = TypeOffsetTable[BroadIndex].Offset;
+		if (PreviousOffset == InsertionOffset)
+		{
+			TypeOffsetTable.RemoveAt(BroadIndex);
+		}
+
+		for (int32 RemoveIndex = 0; RemoveIndex < RemovedLocalPrimitiveSceneInfos.Num(); ++RemoveIndex)
+		{
+			RemovedLocalPrimitiveSceneInfos[RemoveIndex]->PackedIndex = INDEX_NONE;
+		}
+
+		int32 RemoveCount = RemovedLocalPrimitiveSceneInfos.Num() - StartIndex;
+		int32 SourceIndex = Primitives.Num() - RemoveCount;
+
+		Primitives.RemoveAt(SourceIndex, RemoveCount, false);
+		PrimitiveTransforms.RemoveAt(SourceIndex, RemoveCount, false);
+		PrimitiveSceneProxies.RemoveAt(SourceIndex, RemoveCount, false);
+		PrimitiveBounds.RemoveAt(SourceIndex, RemoveCount, false);
+
+		RemovedLocalPrimitiveSceneInfos.RemoveAt(StartIndex, RemovedLocalPrimitiveSceneInfos.Num() - StartIndex, false);
+	}
+
+	Primitives.Reserve(Primitives.Num() + AddedLocalPrimitiveSceneInfos.Num());
+	PrimitiveTransforms.Reserve(PrimitiveTransforms.Num() + AddedLocalPrimitiveSceneInfos.Num());
+	PrimitiveBounds.Reserve(PrimitiveBounds.Num() + AddedLocalPrimitiveSceneInfos.Num());
+	PrimitiveSceneProxies.Reserve(PrimitiveSceneProxies.Num() + AddedLocalPrimitiveSceneInfos.Num());
+
+	while (AddedLocalPrimitiveSceneInfos.Num())
+	{
+		int32 StartIndex = AddedLocalPrimitiveSceneInfos.Num() - 1;
+		SIZE_T ProxyHash = AddedLocalPrimitiveSceneInfos[StartIndex]->Proxy->GetTypeHash();
+
+		for (; StartIndex > 0 && ProxyHash == AddedLocalPrimitiveSceneInfos[StartIndex - 1]->Proxy->GetTypeHash(); --StartIndex)
+		{
+		}
+
+		int32 BroadIndex = -1;
+		for (int32 TypeIndex = 0; TypeIndex < TypeOffsetTable.Num(); ++TypeIndex)
+		{
+			if (TypeOffsetTable[TypeIndex].TypeHash == ProxyHash)
+			{
+				BroadIndex = TypeIndex;
+				break;
+			}
+		}
+
+		for (int32 AddIndex = StartIndex; AddIndex < AddedLocalPrimitiveSceneInfos.Num(); ++AddIndex)
+		{
+			FDisplayerPrimitiveSceneInfo* Info = AddedLocalPrimitiveSceneInfos[AddIndex];
+			Primitives.Add(Info);
+			PrimitiveTransforms.Add(Info->Proxy->GetLocalToWorld());
+			PrimitiveBounds.Add(Info->Proxy->GetWorldBounds());
+			PrimitiveSceneProxies.Add(Info->Proxy);
+		}
+
+		if (BroadIndex == -1)
+		{
+			int32 Offset = TypeOffsetTable[TypeOffsetTable.Num() - 1].Offset;
+			TypeOffsetTable.Add({ ProxyHash, Offset + AddedLocalPrimitiveSceneInfos.Num() });
+			AddedLocalPrimitiveSceneInfos.RemoveAt(StartIndex, AddedLocalPrimitiveSceneInfos.Num() - StartIndex);
+			continue;
+		}
+
+		/**
+		* Example of adding a primitive info(X is type 0).
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, 6, X]
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, X, 6]
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, 3, 3, 3, X, 4, 6]
+		* [0, 0, 0, 1, 1, 1, 5, 2, 2, X, 3, 3, 3, 4, 6]
+		* [0, 0, 0, 1, 1, 1, 5, X, 2, 2, 3, 3, 3, 4, 6]
+		* [0, 0, 0, 1, 1, 1, X, 5, 2, 2, 3, 3, 3, 4, 6]
+		* [0, 0, 0, X, 1, 1, 1, 5, 2, 2, 3, 3, 3, 4, 6]
+		*/
+		for (int32 AddIndex = StartIndex; AddIndex < AddedLocalPrimitiveSceneInfos.Num(); ++AddIndex)
+		{
+			int32 SourceIndex = AddIndex;
+
+			for (int32 TypeIndex = TypeOffsetTable.Num(); TypeIndex >= BroadIndex; --TypeIndex)
+			{
+				FTypeOffsetEntry& Entry = TypeOffsetTable[TypeIndex];
+				int32 DestIndex = Entry.Offset - 1;
+				Entry.Offset++;
+
+				Primitives[SourceIndex]->PackedIndex = DestIndex;
+				Primitives[DestIndex]->PackedIndex = SourceIndex;
+
+				TArraySwapElements(Primitives, SourceIndex, DestIndex);
+				TArraySwapElements(PrimitiveTransforms, SourceIndex, DestIndex);
+				TArraySwapElements(PrimitiveBounds, SourceIndex, DestIndex);
+				TArraySwapElements(PrimitiveSceneProxies, SourceIndex, DestIndex);
+
+				SourceIndex = DestIndex;
+			}
+		}
+
+		for (int32 AddIndex = StartIndex; AddIndex < AddedLocalPrimitiveSceneInfos.Num(); ++AddIndex)
+		{
+			SceneInfosWithStaticDrawListUpdate.Push(AddedLocalPrimitiveSceneInfos[AddIndex]);
+		}
+
+		AddedLocalPrimitiveSceneInfos.RemoveAt(StartIndex, AddedLocalPrimitiveSceneInfos.Num() - StartIndex);
+	}
+
+	if (SceneInfosWithStaticDrawListUpdate.Num() > 0)
+	{
+		FDisplayerPrimitiveSceneInfo::AddToScene(this, SceneInfosWithStaticDrawListUpdate, EPrimitiveAddToSceneOps::All);
+	}
 }
 
 void FDisplayerScene::UpdatePrimitiveTransform(UPrimitiveComponent* Primitive)
@@ -222,11 +455,14 @@ bool FDisplayerScene::GetPreviousLocalToWorld(const FPrimitiveSceneInfo* Primiti
 void FDisplayerScene::AddLight(ULightComponent* Light)
 {
 	FDisplayerLightSceneProxy* LightSceneProxy = CreateDisplayerSceneProxy(Light);
+
 	if (LightSceneProxy)
 	{
 		LightSceneProxy->SetTransform(Light->GetComponentTransform().ToMatrixNoScale(), Light->GetLightPosition());
 
 		LightSceneProxy->LightSceneInfo = new FDisplayerLightSceneInfo(LightSceneProxy, true);
+
+
 
 		ENQUEUE_RENDER_COMMAND(FAddLightCommand)(
 			[this, LightSceneInfo = LightSceneProxy->LightSceneInfo](FRHICommandListImmediate& RHICmdList)
@@ -423,10 +659,58 @@ void FDisplayerScene::GetPrimitiveUniformShaderParameters_RenderThread(const FPr
 
 void FDisplayerScene::UpdateLightTransform(ULightComponent* Light)
 {
+	FDisplayerLightSceneProxy* LightSceneProxy = GetDisplayerSceneProxy(Light);
+
+	if (LightSceneProxy)
+	{
+		struct FUpdateParameters
+		{
+			FMatrix LocalToWorld;
+			FVector4 Position;
+		};
+		FUpdateParameters Params = 
+		{
+			Light->GetComponentTransform().ToMatrixWithScale(),
+			Light->GetLightPosition()
+		};
+
+		if (LightSceneProxy->LightSceneInfo->bVisible)
+		{
+			ENQUEUE_RENDER_COMMAND(FUpdateLightTransformCommand)(
+				[Scene = this, &Params, LightSceneProxy](FRHICommandListImmediate& RHICmdList)
+				{
+					Scene->UpdateLightTransform_RenderThread(LightSceneProxy, Params.LocalToWorld, Params.Position);
+				}
+				);
+		}
+	}
 }
 
 void FDisplayerScene::UpdateLightColorAndBrightness(ULightComponent* Light)
 {
+	FDisplayerLightSceneProxy* LightSceneProxy = GetDisplayerSceneProxy(Light);
+
+	if (LightSceneProxy)
+	{
+		struct FUpdateParameters
+		{
+			FLinearColor LightColor;
+		};
+		FUpdateParameters Params =
+		{
+			Light->GetColoredLightBrightness()
+		};
+
+		if (LightSceneProxy->LightSceneInfo->bVisible)
+		{
+			ENQUEUE_RENDER_COMMAND(FUpdateLightTransformCommand)(
+				[Scene = this, &Params, LightSceneProxy](FRHICommandListImmediate& RHICmdList)
+				{
+					Scene->UpdateLightColorAndBrightness_RenderThread(LightSceneProxy, Params.LightColor);
+				}
+			);
+		}
+	}
 }
 
 void FDisplayerScene::AddExponentialHeightFog(UExponentialHeightFogComponent* FogComponent)
@@ -575,6 +859,7 @@ void FDisplayerScene::UpdateStaticDrawLists()
 
 void FDisplayerScene::UpdateCachedRenderStates(FPrimitiveSceneProxy* SceneProxy)
 {
+
 }
 
 void FDisplayerScene::UpdatePrimitiveSelectedState_RenderThread(const FPrimitiveSceneInfo* PrimitiveSceneInfo, bool bIsSelected)
@@ -660,9 +945,32 @@ void FDisplayerScene::RemoveLightSceneInfo_RenderThread(FDisplayerLightSceneInfo
 	}
 }
 
-void FDisplayerScene::UpdateLight_RenderThread(FDisplayerLightSceneProxy* LightSceneProxy, const FMatrix& InLocalToWorld, const FVector& InLightPosition, const FLinearColor& InLightColor)
+void FDisplayerScene::UpdateLightTransform_RenderThread(FDisplayerLightSceneProxy* LightSceneProxy, const FMatrix& InLocalToWorld, const FVector4& InLightPosition)
 {
 	check(IsInRenderingThread());
 
-	UpdateLights.Update(LightSceneProxy, { InLocalToWorld, InLightPosition, InLightColor });
+	FUpdateLightCommand* UpdateLightCommand = UpdateLights.Find(LightSceneProxy);
+	if (!UpdateLightCommand)
+	{
+		UpdateLightCommand = UpdateLights.FindOrAdd(LightSceneProxy, FUpdateLightCommand({ InLocalToWorld, InLightPosition }));
+	}
+	else
+	{
+		UpdateLightCommand->Set({ InLocalToWorld, InLightPosition });
+	}
+}
+
+void FDisplayerScene::UpdateLightColorAndBrightness_RenderThread(FDisplayerLightSceneProxy* LightSceneProxy, const FLinearColor& InLightColor)
+{
+	check(IsInRenderingThread());
+
+	FUpdateLightCommand* UpdateLightCommand = UpdateLights.Find(LightSceneProxy);
+	if (!UpdateLightCommand)
+	{
+		UpdateLightCommand = UpdateLights.FindOrAdd(LightSceneProxy, FUpdateLightCommand({ InLightColor }));
+	}
+	else
+	{
+		UpdateLightCommand->Set({ InLightColor });
+	}
 }

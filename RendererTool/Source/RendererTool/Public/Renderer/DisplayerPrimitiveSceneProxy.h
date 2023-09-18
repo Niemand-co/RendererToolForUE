@@ -18,7 +18,21 @@ public:
 
 	TStatId GetStatId() const { return StatId; }
 
-private:
+	virtual SIZE_T GetTypeHash() const = 0;
+
+	//Accessors
+	inline const FVector GetPosition() const { return ActorPosition; }
+	inline const FMatrix GetLocalToWorld() const { return LocalToWorld; }
+	inline const FBoxSphereBounds GetWorldBounds() const { return WorldBounds; }
+	inline const FBoxSphereBounds GetLocalBounds() const { return LocalBounds; }
+
+	virtual int32 GetNumMeshBatches() const = 0;
+
+	virtual void DrawStaticMeshElements() = 0;
+
+	virtual bool GetMeshElements(int32 LODIndex, FMeshBatch& OutMeshBatch) = 0;
+
+protected:
 
 	FDisplayerPrimitiveSceneInfo* SceneInfo;
 

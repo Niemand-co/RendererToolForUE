@@ -6,6 +6,8 @@ enum class EDisplayerShadingPath : uint8
 {
 	BlueProtocol = 0,
 	GenshinImpact = 1,
+
+	Num = 2
 };
 
 class FDisplayerViewInfo : public FSceneView

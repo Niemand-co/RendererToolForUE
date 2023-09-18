@@ -22,11 +22,29 @@ public:
 		FVector AttachmentRootPosition;
 	};
 
-	struct FUpdateLightCommand
+	struct FLightTransformParameters
 	{
 		FMatrix LocalToWorld;
-		FVector LightPosition;
+		FVector4 LightPosition;
+	};
+
+	struct FLightColorParameters
+	{
 		FLinearColor LightColor;
+	};
+
+	struct FUpdateLightCommand
+	{
+		FUpdateLightCommand(const FLightTransformParameters& InTransformParameters) : bHasTransform(true), bHasColor(false) { Set(InTransformParameters); }
+		FUpdateLightCommand(const FLightColorParameters& InColorParameters) : bHasTransform(false), bHasColor(true) { Set(InColorParameters); }
+
+		void Set(const FLightTransformParameters& InTransformParameters) { TransformParameters = InTransformParameters; }
+		void Set(const FLightColorParameters& InColorParameters) { ColorParameters = InColorParameters; }
+
+		FLightTransformParameters TransformParameters;
+		FLightColorParameters ColorParameters;
+		uint8 bHasColor : 1;
+		uint8 bHasTransform : 1;
 	};
 
 	Experimental::TRobinHoodHashSet<FDisplayerPrimitiveSceneInfo*> AddedPrimitiveSceneInfos;
@@ -36,6 +54,19 @@ public:
 	Experimental::TRobinHoodHashSet<FDisplayerLightSceneInfo*> AddedLightSceneInfos;
 	Experimental::TRobinHoodHashSet<FDisplayerLightSceneInfo*> RemovedLightSceneInfos;
 	Experimental::TRobinHoodHashMap<FDisplayerLightSceneProxy*, FUpdateLightCommand> UpdateLights;
+
+	struct FTypeOffsetEntry
+	{
+		FTypeOffsetEntry(SIZE_T InTypeHash, int32 InOffset) : TypeHash(InTypeHash), Offset(InOffset) { }
+		SIZE_T TypeHash;
+		int32 Offset;
+	};
+	TArray<FTypeOffsetEntry> TypeOffsetTable;
+
+	TArray<FDisplayerPrimitiveSceneInfo*> Primitives;
+	TArray<FMatrix> PrimitiveTransforms;
+	TArray<FDisplayerPrimitiveSceneProxy*> PrimitiveSceneProxies;
+	TArray<FBoxSphereBounds> PrimitiveBounds;
 
 public:
 
@@ -219,6 +250,7 @@ private:
 
 	void RemoveLightSceneInfo_RenderThread(FDisplayerLightSceneInfo* LightSceneInfo);
 
-	void UpdateLight_RenderThread(FDisplayerLightSceneProxy* LightSceneProxy, const FMatrix& InLocalToWorld, const FVector& InLightPosition, const FLinearColor& InLightColor);
+	void UpdateLightTransform_RenderThread(FDisplayerLightSceneProxy* LightSceneProxy, const FMatrix& InLocalToWorld, const FVector4& InLightPosition);
 
+	void UpdateLightColorAndBrightness_RenderThread(FDisplayerLightSceneProxy* LightSceneProxy, const FLinearColor& InLightColor);
 };

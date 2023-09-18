@@ -129,6 +129,12 @@ void FRendererDisplayer::Construct(const FArguments& Arguments, TSharedPtr<SView
 
 void FRendererDisplayer::Tick(float InDeltaTime)
 {
+	FSceneInterface* Scene = World->Scene;
+	ENQUEUE_RENDER_COMMAND(UpdateScenePrimitives)([Scene](FRHICommandListImmediate& RHICmdList)
+		{
+			Scene->UpdateAllPrimitiveSceneInfos(RHICmdList);
+		});
+
 	World->Tick(ELevelTick::LEVELTICK_All, InDeltaTime);
 
 	ViewportClient->Tick(InDeltaTime);

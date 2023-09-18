@@ -9,3 +9,13 @@ FDisplayerInstancedStaticMeshSceneProxy::FDisplayerInstancedStaticMeshSceneProxy
 FDisplayerInstancedStaticMeshSceneProxy::~FDisplayerInstancedStaticMeshSceneProxy()
 {
 }
+
+SIZE_T FDisplayerInstancedStaticMeshSceneProxy::GetTypeHash() const
+{
+	static SIZE_T UniquePointer;
+	return (SIZE_T)&UniquePointer;
+}
+
+void FDisplayerInstancedStaticMeshSceneProxy::DrawStaticMeshElements()
+{
+}
